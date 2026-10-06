@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Liquidity Scalper · XAUUSD Live</title>
+<style>
+  :root{--bg:#0a0e14;--card:#11161f;--line:#1e2634;--txt:#e6eaf2;--dim:#8b94a7;
+    --green:#22c55e;--red:#ef4444;--gold:#d4a93c;--blue:#3b82f6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+    display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+  #topbar{display:flex;align-items:center;gap:8px;padding:8px 12px;
+    background:var(--card);border-bottom:1px solid var(--line);flex:0 0 auto;z-index:20}
+  #topbar h1{font-size:15px;letter-spacing:.5px;white-space:nowrap}
+  #topbar h1 span{color:var(--gold)}
+  #topbar .sym{font-size:11px;color:var(--dim);white-space:nowrap}
+  .ktag{font-size:9px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;
+    padding:0 3px;margin-right:4px;white-space:nowrap}
+  button.sym{background:none;border:1px solid #2a3348;border-radius:6px;padding:3px 8px;
+    cursor:pointer;font:inherit;color:var(--dim)}
+  button.sym:active{transform:scale(.96)}
+  #price{font-size:22px;font-weight:800;font-family:ui-monospace,Menlo,monospace;
+    margin-left:auto;white-space:nowrap}
+  #price.tick-up{color:var(--green)} #price.tick-dn{color:var(--red)}
+  .badge{font-size:10px;padding:3px 9px;border-radius:20px;background:var(--bg);
+    border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+  .badge.on{color:var(--green);border-color:var(--green)}
+  .badge.up{color:var(--green);border-color:var(--green)}
+  .badge.dn{color:var(--red);border-color:var(--red)}
+  .badge.warn{color:var(--gold);border-color:var(--gold)}
+  #stage{position:relative;flex:1 1 auto;min-height:0}
+  #chartWrap{position:absolute;inset:0}
+  #chart{position:absolute;inset:0;touch-action:none}
+  .panel{position:absolute;background:rgba(13,18,27,.92);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;z-index:10;backdrop-filter:blur(3px);
+    font-size:12px;box-shadow:0 4px 18px rgba(0,0,0,.45)}
+  .panel h2{font-size:10px;color:var(--dim);text-transform:uppercase;
+    letter-spacing:1px;margin-bottom:8px}
+  #signalPanel{top:10px;left:10px;max-width:305px}
+  #vtext{font-size:30px;font-weight:800;letter-spacing:2px}
+  #signalPanel.WAIT #vtext{color:var(--dim)}
+  #signalPanel.LONG{border-color:var(--green)} #signalPanel.LONG #vtext{color:var(--green)}
+  #signalPanel.SHORT{border-color:var(--red)} #signalPanel.SHORT #vtext{color:var(--red)}
+  #signalPanel.TP{border-color:var(--green)} #signalPanel.TP #vtext{color:var(--green)}
+  #signalPanel.SL{border-color:var(--red)} #signalPanel.SL #vtext{color:var(--red)}
+  @keyframes pulseG{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}100%{box-shadow:0 0 0 22px rgba(34,197,94,0)}}
+  @keyframes pulseR{0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}100%{box-shadow:0 0 0 22px rgba(239,68,68,0)}}
+  #signalPanel.flashTP{animation:pulseG 1.1s ease-out 4}
+  #signalPanel.flashSL{animation:pulseR 1.1s ease-out 4}
+  #vsub{font-size:11px;color:var(--dim);margin:2px 0 6px}
+  .plan{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0}
+  .plan div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+  .plan small{display:block;color:var(--dim);font-size:9px;margin-bottom:2px;letter-spacing:.5px}
+  .plan b{font-size:15px;font-family:ui-monospace,Menlo,monospace}
+  #pSL{color:var(--red)} #pTP{color:var(--green)} #pEntry{color:var(--blue)}
+  #reason{font-size:11px;color:var(--gold);line-height:1.45;margin-top:4px}
+  #poolPanel{top:10px;right:10px;width:212px;max-height:46%;overflow-y:auto}
+  .pool{display:flex;justify-content:space-between;align-items:center;
+    padding:5px 0;border-bottom:1px solid var(--line);font-size:11px}
+  .pool:last-child{border-bottom:none}
+  .pool .p{font-family:ui-monospace,Menlo,monospace;font-weight:700}
+  .tag{font-size:9px;padding:1px 7px;border-radius:12px;background:var(--bg);
+    border:1px solid var(--line);color:var(--dim);margin-left:4px;white-space:nowrap}
+  .tag.prem{color:var(--gold);border-color:var(--gold)}
+  .dist{color:var(--dim);font-family:ui-monospace,Menlo,monospace;font-size:10px}
+  #logPanel{left:10px;bottom:10px;max-width:340px;max-height:38%;overflow-y:auto}
+  #logPanel table{width:100%;border-collapse:collapse;font-size:11px}
+  #logPanel th{color:var(--dim);text-align:left;padding:4px;font-weight:500;font-size:10px}
+  #logPanel td{padding:5px 4px;border-top:1px solid var(--line);
+    font-family:ui-monospace,Menlo,monospace;white-space:nowrap}
+  .LONG{color:var(--green);font-weight:700}.SHORT{color:var(--red);font-weight:700}
+  .win{color:var(--green)}.loss{color:var(--red)}
+  .empty{color:var(--dim);font-size:11px;text-align:center;padding:8px}
+  #ctx{font-size:10px;color:var(--dim);margin-top:6px;line-height:1.5}
+  #foot{flex:0 0 auto;font-size:10px;color:var(--dim);text-align:center;
+    padding:5px 8px;border-top:1px solid var(--line);background:var(--card);z-index:20}
+  #err{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:30;
+    background:rgba(60,20,20,.95);border:1px solid var(--red);border-radius:10px;
+    padding:10px 16px;font-size:12px;display:none;max-width:92%}
+  @media (max-width:700px){
+    #signalPanel{max-width:238px;padding:8px 10px}
+    #vtext{font-size:24px}
+    .plan b{font-size:13px}
+    #poolPanel{width:172px}
+    #logPanel{max-width:250px}
+    #topbar h1{font-size:13px}
+    #price{font-size:18px}
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>⚡ LIQUIDITY <span>SCALPER</span></h1>
+  <button class="sym" id="symLabel" title="tap to switch feed">···</button>
+  <span class="badge" id="fresh">···</span>
+  <div id="price">–</div>
+  <span class="badge" id="trend">H1 ···</span>
+  <span class="badge" id="session">···</span>
+</div>
+
+<div id="stage">
+  <div id="chartWrap"><canvas id="chart"></canvas></div>
+  <div id="err"></div>
+
+  <div class="panel WAIT" id="signalPanel">
+    <h2>Signal</h2>
+    <div id="vtext">WAIT</div>
+    <div id="vsub">connecting…</div>
+    <div class="plan" id="plan" style="display:none">
+      <div><small>ENTRY</small><b id="pEntry">–</b></div>
+      <div><small>STOP LOSS</small><b id="pSL">–</b></div>
+      <div><small>TAKE PROFIT</small><b id="pTP">–</b></div>
+      <div id="tp2row" style="display:none"><small>TP2</small><b id="pTP2">–</b></div>
+      <div id="tp3row" style="display:none"><small>TP3</small><b id="pTP3">–</b></div>
+      <div><small>R : R</small><b id="pRR">–</b></div>
+    </div>
+    <div id="reason"></div>
+    <div id="ctx"></div>
+  </div>
+
+  <div class="panel" id="poolPanel">
+    <h2>Pools above</h2>
+    <div id="above"><div class="empty">…</div></div>
+    <h2 style="margin-top:8px">Pools below</h2>
+    <div id="below"><div class="empty">…</div></div>
+  </div>
+
+  <div class="panel" id="logPanel">
+    <h2>Today's signals</h2>
+    <table>
+      <thead><tr><th>TIME</th><th>DIR</th><th>ENTRY</th><th>R:R</th><th>RESULT</th></tr></thead>
+      <tbody id="log"><tr><td colspan="5" class="empty">…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="foot">⚠️ Educational only — not financial advice · <span id="feedNote">connecting…</span> ·
+  <span id="updated">…</span></div>
+
+<script src="engine.js"></script>
+<script>
+'use strict';
+/* Live client-side Liquidity Scalper.
+ * FEED: Yahoo Finance XAUUSD=X (spot composite, tracks Exness/OANDA within ~$1)
+ *       — REST history + 20s polling. No key, no account.
+ *       Fallback: Binance PAXGUSDT public feed (websocket tick-live). No key.
+ * ENGINE: engine.js — bit-for-bit port of the Python engine (verified 14/14
+ *       identical signals on 5 test dates). Closed candles only, no repaint. */
+const YAHOO = 'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X';
+const PAXG_API = 'https://data-api.binance.vision';
+const PAXG_WS = 'wss://data-stream.binance.vision/ws/paxgusdt@kline_1m';
+const PKT = 'Asia/Karachi';
+const FRESH_MIN = 120;               // active-signal recency, like the Python engine
+
+let FEED = null;                     // 'yahoo' | 'paxg'
+let M1 = [], H1 = [], H4 = [], M15 = []; // M1 includes the forming candle last
+let pools = [], signalsToday = [];
+let swings = [], swingSignalsToday = [];   // 15m "liq bias" swing setups
+let ws = null, wsFails = 0, pollTimer = null, lastPrice = 0;
+let yahooFails = 0, yahooRetryTimer = null, lastWSMsg = 0;
+
+const $ = id => document.getElementById(id);
+const fmtT = ms => new Date(ms).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:PKT});
+const fmtD = ms => new Date(ms).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:PKT});
+const marketOpen = ms => { const d = new Date(ms).getUTCDay(); return d !== 0 && d !== 6; };
+
+function err(msg){
+  const e = $('err');
+  e.textContent = msg; e.style.display = 'block';
+  clearTimeout(err._t); err._t = setTimeout(() => e.style.display = 'none', 8000);
+}
+
+/* ---------------- feeds ---------------- */
+async function yahooKlines(interval, range){
+  const r = await fetch(`${YAHOO}?interval=${interval}&range=${range}`);
+  if(!r.ok) throw new Error('Yahoo HTTP ' + r.status);
+  const j = await r.json();
+  const res = j.chart.result[0];
+  const q = res.indicators.quote[0];
+  const out = [];
+  for(let i = 0; i < res.timestamp.length; i++){
+    const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i];
+    if(o == null || h == null || l == null || c == null) continue;
+    out.push({ t: res.timestamp[i] * 1000, o, h, l, c });
+  }
+  out.sort((a, b) => a.t - b.t);
+  return out;
+}
+function resample4h(h1){
+  const out = []; let cur = null;
+  for(const b of h1){
+    const key = Math.floor(b.t / 14400000) * 14400000;
+    if(!cur || cur.t !== key){ cur = { t: key, o: b.o, h: b.h, l: b.l, c: b.c }; out.push(cur); }
+    else { cur.h = Math.max(cur.h, b.h); cur.l = Math.min(cur.l, b.l); cur.c = b.c; }
+  }
+  return out;
+}
+async function paxgKlines(interval, limit){
+  const r = await fetch(`${PAXG_API}/api/v3/klines?symbol=PAXGUSDT&interval=${interval}&limit=${limit}`);
+  if(!r.ok) throw new Error('PAXG HTTP ' + r.status);
+  return (await r.json()).map(k => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
+}
+function applyFeedLabel(){
+  if(FEED === 'yahoo'){
+    $('symLabel').innerHTML = 'XAUUSD · 1m <span style="opacity:.5">⇄</span>';
+    $('feedNote').textContent = 'XAUUSD spot via Yahoo Finance · close to Exness/OANDA · tap label to switch';
+  } else {
+    $('symLabel').innerHTML = 'PAXG · 1m ≈ XAUUSD <span style="opacity:.5">⇄</span>';
+    $('feedNote').textContent = 'PAXG feed (fallback) · tracks XAUUSD within a few $ · tap label to switch';
+  }
+}
+
+/* Manual feed toggle (tap the top-bar label) */
+async function attemptYahooNow(){
+  if(FEED !== 'paxg') return false;
+  try {
+    const m1 = await yahooKlines('1m', '1d');
+    if(m1.length < 30) throw new Error('thin yahoo');
+    const h1 = await yahooKlines('1h', '1mo');
+    if(yahooRetryTimer){ clearInterval(yahooRetryTimer); yahooRetryTimer = null; }
+    if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+    try { ws.close(); } catch(e){}
+    M1 = m1; H1 = h1; H4 = resample4h(h1);
+    try { M15 = await yahooKlines('15m', '1mo'); } catch(e){}
+    FEED = 'yahoo'; wsFails = 0; yahooFails = 0;
+    applyFeedLabel();
+    recompute();
+    setFresh('live');
+    pollTimer = setInterval(yahooPoll, 20000);
+    return true;
+  } catch(e){ return false; }
+}
+function toggleFeed(){
+  if(FEED === 'yahoo'){ switchToPaxg(); }
+  else if(FEED === 'paxg'){
+    setFresh('connecting');
+    attemptYahooNow().then(ok => { if(!ok) setFresh('live'); });
+  }
+}
+
+/* ---------------- engine ---------------- */
+function recompute(){
+  const nowMs = Date.now();
+  if(M1.length < 10 || H1.length < 10 || H4.length < 10) return;
+  const m1c = LS.closed_only(M1, nowMs);
+  const h1c = LS.closed_only(H1, nowMs);
+  const h4c = LS.closed_only(H4, nowMs);
+  pools = LS.detect_pools(h1c, h4c, nowMs);
+  const { signals } = LS.build_signals(m1c, pools, h1c, nowMs);
+  signalsToday = signals.map(s => {
+    const after = m1c.filter(b => b.t > Date.parse(s.signal_at));
+    return after.length ? Object.assign({}, s, LS.track_outcome(s, after))
+                        : Object.assign({}, s, { outcome: null, r: null });
+  });
+  // swing setups: 15m major swings + M1 sweep + confirmation
+  // Mickey's rule: only 15m swings sitting on H1/H4 liquidity (HTF confluence)
+  if(M15.length >= 30){
+    const m15c = LS.closed_only(M15, nowMs);
+    const htf = { high: [], low: [] };
+    for (const [bars, L, R] of [[h1c, LS.CONFIG.h1_left, LS.CONFIG.h1_right],
+                                [h4c, LS.CONFIG.h4_left, LS.CONFIG.h4_right]]) {
+      if (!bars || !bars.length) continue;
+      const [hs, ls] = LS.fractals(bars, L, R);
+      for (const [, p] of hs) htf.high.push(p);
+      for (const [, p] of ls) htf.low.push(p);
+    }
+    swings = LS.detect_swings(m15c, nowMs, htf);
+    const swr = LS.build_swing_signals(m1c, swings, nowMs);
+    swingSignalsToday = swr.signals.map(s => {
+      const after = m1c.filter(b => b.t > Date.parse(s.signal_at));
+      return after.length ? Object.assign({}, s, LS.track_swing_outcome(s, after))
+                          : Object.assign({}, s, { outcome: null, r: null });
+    });
+  } else { swings = []; swingSignalsToday = []; }
+  const allSigs = signalsToday.concat(swingSignalsToday);
+  // detect newly resolved trades -> pulse the result banner (no flash on first load)
+  const cur = {};
+  let justResolved = null;
+  for(const s of allSigs){
+    const key = (s.kind || 'scalp') + '|' + s.signal_at;
+    cur[key] = s.outcome || null;
+    if(prevOutcomes && s.outcome && !prevOutcomes[key]) justResolved = key;
+  }
+  if(justResolved) flashSig = justResolved;
+  prevOutcomes = cur;
+  render(nowMs, m1c, h1c, h4c);
+}
+
+function activeSignal(nowMs){
+  // freshest signal first (by time) — across scalp + swing setups
+  const cutoff = nowMs - FRESH_MIN * 60000;
+  const fresh = signalsToday.concat(swingSignalsToday)
+    .filter(s => Date.parse(s.signal_at) >= cutoff)
+    .sort((a, b) => Date.parse(b.signal_at) - Date.parse(a.signal_at));
+  return fresh.length ? fresh[0] : null;
+}
+function sigKey(s){ return (s.kind || 'scalp') + '|' + s.signal_at; }
+
+let prevOutcomes = null;   // signal_at -> outcome; null until first compute
+let flashSig = null;       // signal_at of a just-resolved trade (pulse banner)
+
+/* ---------------- panels ---------------- */
+function poolRow(p){
+  return `<div class="pool"><span class="p">${p.price.toFixed(2)}</span>`
+    + `<span><span class="tag">${p.tf}</span><span class="tag ${p.premium?'prem':''}">${p.premium?'★':'pool'}</span></span>`
+    + `<span class="dist">$${p.distance.toFixed(2)}</span></div>`;
+}
+
+function renderPanels(nowMs, h1c, h4c){
+  const price = M1.length ? M1[M1.length-1].c : 0;
+  const pe = $('price');
+  pe.textContent = '$' + price.toLocaleString('en-US',{minimumFractionDigits:2});
+  pe.classList.remove('tick-up','tick-dn');
+  if(price > lastPrice) pe.classList.add('tick-up');
+  else if(price < lastPrice) pe.classList.add('tick-dn');
+  lastPrice = price;
+
+  const open = marketOpen(nowMs);
+  const act = open ? activeSignal(nowMs) : null;
+  const done = act && act.outcome ? act : null;   // freshest signal already resolved
+  const live = act && !act.outcome ? act : null;  // trade still open
+  const sp = $('signalPanel');
+  const plan = $('plan');
+  if(done){
+    const tpWin = done.outcome && done.outcome.startsWith('TP');
+    const lost = done.outcome === 'SL';
+    const cls = tpWin ? 'TP' : lost ? 'SL' : 'WAIT';
+    const flash = flashSig === sigKey(done) ? (tpWin ? ' flashTP' : lost ? ' flashSL' : '') : '';
+    sp.className = 'panel ' + cls + flash;
+    const lbl = done.outcome === 'TP' ? '🎯 TP HIT'
+      : tpWin ? `🎯 ${done.outcome} HIT` : lost ? '🛑 SL HIT' : '⌛ EXPIRED';
+    $('vtext').textContent = lbl;
+    plan.style.display = 'none';
+    const kindTag = done.kind === 'swing' ? 'SWING ' : '';
+    $('vsub').textContent = kindTag + done.direction + ' · ' + fmtT(Date.parse(done.signal_at)) + ' PKT · ' + done.session;
+    const rc = tpWin ? 'var(--green)' : lost ? 'var(--red)' : 'var(--dim)';
+    const tpTxt = done.kind === 'swing'
+      ? `TP1 ${done.tp.toFixed(2)}${done.tp2 ? ' · TP2 ' + done.tp2.toFixed(2) : ''}${done.tp3 ? ' · TP3 ' + done.tp3.toFixed(2) : ''}`
+      : `TP ${done.tp.toFixed(2)}`;
+    $('reason').innerHTML = `entry ${done.entry.toFixed(2)} · SL ${done.sl.toFixed(2)} · ${tpTxt} → <b style="color:${rc}">${done.r > 0 ? '+' : ''}${done.r}R</b>`;
+  } else if(live){
+    sp.className = 'panel ' + live.direction;
+    const kindTag = live.kind === 'swing' ? 'SWING ' : '';
+    $('vtext').textContent = kindTag + live.direction;
+    plan.style.display = 'grid';
+    $('pEntry').textContent = live.entry.toFixed(2);
+    $('pSL').textContent = live.sl.toFixed(2);
+    $('pTP').textContent = live.tp.toFixed(2);
+    $('pRR').textContent = '1:' + live.rr.toFixed(2);
+    const isSwing = live.kind === 'swing';
+    $('tp2row').style.display = isSwing && live.tp2 ? '' : 'none';
+    $('tp3row').style.display = isSwing && live.tp3 ? '' : 'none';
+    if(isSwing){
+      if(live.tp2) $('pTP2').textContent = live.tp2.toFixed(2) + ' (1:' + live.rr2.toFixed(1) + ')';
+      if(live.tp3) $('pTP3').textContent = live.tp3.toFixed(2) + ' (1:' + live.rr3.toFixed(1) + ')';
+    }
+    $('vsub').textContent = kindTag + live.direction + ' · swept ' + fmtT(Date.parse(live.swept_at)) + ' PKT · ' + live.session;
+    $('reason').textContent = '💧 ' + live.reason;
+  } else {
+    plan.style.display = 'none';
+    const sess = open ? LS.session_of(nowMs) : null;
+    $('vsub').textContent = !open ? 'market closed (weekend)' :
+      sess ? 'in killzone — strict filters active' : 'outside killzones — no signals';
+    $('reason').textContent = !open ? '' :
+      sess ? (signalsToday.length ? '' : '⏳ in killzone — waiting for a pool sweep…')
+           : '⏳ Outside killzones — pools still mapped, no signals';
+  }
+
+  const trend = LS.structure_trend(h1c, LS.CONFIG.h1_left, LS.CONFIG.h1_right);
+  const h4r = LS.structure_trend(h4c, LS.CONFIG.h4_left, LS.CONFIG.h4_right);
+  $('ctx').textContent = 'H1 ' + trend + ' · H4 ' + h4r + ' (context)';
+  const tb = $('trend');
+  tb.textContent = 'H1 ' + trend;
+  tb.className = 'badge' + (trend === 'UPTREND' ? ' up' : trend === 'DOWNTREND' ? ' dn' : '');
+  const sb = $('session'), sess = open ? LS.session_of(nowMs) : null;
+  sb.textContent = !open ? '○ CLOSED' : sess ? '● ' + sess : '○ OFF';
+  sb.className = 'badge' + (sess ? ' on' : '');
+
+  const map = LS.liquidity_map(price, pools);
+  $('above').innerHTML = map.above.map(poolRow).join('') || '<div class="empty">none</div>';
+  $('below').innerHTML = map.below.map(poolRow).join('') || '<div class="empty">none</div>';
+
+  const logRows = signalsToday.concat(swingSignalsToday)
+    .sort((a, b) => Date.parse(b.signal_at) - Date.parse(a.signal_at));
+  $('log').innerHTML = logRows.length ? logRows.map(x => {
+    const won = x.outcome && x.outcome.startsWith('TP');
+    const oc = x.outcome
+      ? `<span class="${won ? 'win' : 'loss'}">${x.outcome} ${x.r > 0 ? '+' : ''}${x.r}R</span>`
+      : '<span style="color:var(--dim)">open</span>';
+    const ktag = x.kind === 'swing' ? '<span class="ktag">SWING</span> ' : '';
+    const tps = x.kind === 'swing'
+      ? `<div style="font-size:10px;color:var(--dim)">T2 ${x.tp2 ? x.tp2.toFixed(1) : '–'} · T3 ${x.tp3 ? x.tp3.toFixed(1) : '–'}</div>` : '';
+    return `<tr><td>${fmtT(Date.parse(x.signal_at))}</td><td class="${x.direction}">${ktag}${x.direction}</td>`
+      + `<td>${x.entry.toFixed(2)}${tps}</td><td>1:${x.rr.toFixed(1)}</td><td>${oc}</td></tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty">no signals yet today — strict filter, this is normal</td></tr>';
+
+  $('updated').textContent = 'engine ' + fmtD(nowMs) + ' PKT';
+}
+
+/* ---------------- chart ---------------- */
+function render(nowMs, m1c, h1c, h4c){
+  renderPanels(nowMs, h1c, h4c);
+  drawChart(nowMs);
+}
+
+function drawChart(nowMs){
+  const wrap = $('chartWrap'), cv = $('chart');
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  if(!W || !H || !M1.length) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, W, H);
+
+  const off = Math.min(viewOffset, Math.max(0, M1.length - viewCount));
+  const candles = off > 0 ? M1.slice(-(viewCount + off), -off) : M1.slice(-viewCount);
+  const AXW = 60, AXH = 22;
+  const pw = W - AXW, ph = H - AXH;
+  let lo = Infinity, hi = -Infinity;
+  const consider = v => { if(v < lo) lo = v; if(v > hi) hi = v; };
+  candles.forEach(k => { consider(k.l); consider(k.h); });
+  const price0 = M1[M1.length-1].c;
+  const pmap = LS.liquidity_map(price0, pools);   // only drawn pools set the axis
+  pmap.above.concat(pmap.below).forEach(p => consider(p.price));
+  const smap = LS.liquidity_map(price0, swings, 3); // nearest M15 swings
+  smap.above.concat(smap.below).forEach(p => consider(p.price));
+  const act = marketOpen(nowMs) ? activeSignal(nowMs) : null;
+  if(act){
+    [act.entry, act.sl, act.tp, act.tp2, act.tp3].forEach(v => { if(v != null) consider(v); });
+  }
+  if(!isFinite(lo)){ lo = 4100; hi = 4200; }
+  const pad = ((hi - lo) * 0.10) || 1;
+  lo -= pad; hi += pad;
+  const y = v => ph - (v - lo) / (hi - lo) * ph;
+
+  c.lineWidth = 1; c.font = '10px system-ui';
+  for(let i = 0; i <= 5; i++){
+    const v = lo + (hi - lo) * i / 5, yy = Math.round(y(v)) + .5;
+    c.strokeStyle = '#141b28';
+    c.beginPath(); c.moveTo(0, yy); c.lineTo(pw, yy); c.stroke();
+    c.fillStyle = '#5b6478'; c.fillText(v.toFixed(1), pw + 6, yy + 3);
+  }
+
+  const band = (p, fill, edge) => {
+    const y1 = y(p.price + .30), y2 = y(p.price - .30);
+    c.fillStyle = fill; c.fillRect(0, y1, pw, y2 - y1);
+    if(edge){
+      c.strokeStyle = edge; c.setLineDash([5, 4]); c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(0, (y1+y2)/2); c.lineTo(pw, (y1+y2)/2); c.stroke();
+      c.setLineDash([]); c.lineWidth = 1;
+    }
+    c.fillStyle = edge || '#6b7488';
+    c.fillText(p.tf + (p.premium ? ' ★' : ''), 6, (y1 + y2) / 2 - 4);
+  };
+  const price = price0;
+  pmap.above.forEach(p => band(p, 'rgba(239,68,68,.08)', p.premium ? '#d4a93c' : null));
+  pmap.below.forEach(p => band(p, 'rgba(34,197,94,.08)', p.premium ? '#d4a93c' : null));
+  // M15 major swing zones (liq-bias levels) — gold tint, distinct from H1/H4 pools
+  const sband = (p) => {
+    const y1 = y(p.price + .30), y2 = y(p.price - .30);
+    c.fillStyle = 'rgba(212,169,60,.10)'; c.fillRect(0, y1, pw, y2 - y1);
+    c.strokeStyle = '#d4a93c'; c.setLineDash([5, 4]); c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(0, (y1 + y2) / 2); c.lineTo(pw, (y1 + y2) / 2); c.stroke();
+    c.setLineDash([]); c.lineWidth = 1;
+    c.fillStyle = '#d4a93c';
+    c.fillText('M15' + (p.premium ? ' ★' : ''), 6, (y1 + y2) / 2 - 4);
+  };
+  smap.above.concat(smap.below).forEach(sband);
+
+  const n = candles.length, cw = pw / n;
+  for(let i = 0; i < n; i++){
+    const k = candles[i];
+    const x = i * cw + cw / 2, bw = Math.max(1, cw * 0.62);
+    const live = i === n - 1 && viewOffset <= 0;
+    const col = k.c >= k.o ? '#22c55e' : '#ef4444';
+    c.strokeStyle = col;
+    c.beginPath(); c.moveTo(x, y(k.h)); c.lineTo(x, y(k.l)); c.stroke();
+    const yO = y(k.o), yC = y(k.c);
+    if(live){ c.strokeRect(x - bw/2, Math.min(yO, yC), bw, Math.max(1.5, Math.abs(yC - yO))); }
+    else { c.fillStyle = col; c.fillRect(x - bw/2, Math.min(yO, yC), bw, Math.max(1, Math.abs(yC - yO))); }
+  }
+
+  c.fillStyle = '#5b6478';
+  const labStep = n > 150 ? 30 : n > 80 ? 15 : 5;
+  for(let i = 0; i < n; i += labStep){
+    c.fillText(fmtT(candles[i].t), i * cw + cw / 2 - 14, H - 7);
+  }
+
+  const level = (v, color, label, dash) => {
+    const yy = Math.round(y(v)) + .5;
+    c.strokeStyle = color; c.lineWidth = 1.4;
+    c.setLineDash(dash || []);
+    c.beginPath(); c.moveTo(0, yy); c.lineTo(pw, yy); c.stroke();
+    c.setLineDash([]); c.lineWidth = 1;
+    const txt = (label ? label + ' ' : '') + v.toFixed(2);
+    c.fillStyle = color; c.fillRect(pw, yy - 9, AXW, 18);
+    c.fillStyle = '#0a0e14'; c.fillText(txt, pw + 4, yy + 3.5);
+  };
+  if(act){
+    level(act.tp, '#22c55e', act.kind === 'swing' ? 'TP1' : 'TP');
+    if(act.kind === 'swing'){
+      if(act.tp2 != null) level(act.tp2, '#4ade80', 'TP2', [7, 5]);
+      if(act.tp3 != null) level(act.tp3, '#86efac', 'TP3', [3, 4]);
+    }
+    level(act.entry, '#3b82f6', 'EN', [7, 5]);
+    level(act.sl, '#ef4444', 'SL');
+  }
+  level(price, '#d4a93c', '', [3, 4]);
+}
+
+/* ---------------- live wiring ---------------- */
+function setFresh(state){
+  const fb = $('fresh');
+  if(state === 'live'){ fb.textContent = '● LIVE'; fb.className = 'badge on'; }
+  else if(state === 'connecting'){ fb.textContent = '○ CONNECTING…'; fb.className = 'badge'; }
+  else { fb.textContent = '○ RECONNECTING…'; fb.className = 'badge warn'; }
+}
+
+function closedView(){
+  const nowMs = Date.now();
+  return [nowMs, LS.closed_only(M1, nowMs), LS.closed_only(H1, nowMs), LS.closed_only(H4, nowMs)];
+}
+function onTick(bar){
+  const last = M1[M1.length - 1];
+  if(!last) return;
+  if(bar.t === last.t){ M1[M1.length - 1] = bar; }
+  else if(bar.t > last.t){
+    M1.push(bar);
+    if(M1.length > 1600) M1.splice(0, M1.length - 1600);
+    recompute();
+    return;
+  }
+  const [nowMs, m1c, h1c, h4c] = closedView();
+  render(nowMs, m1c, h1c, h4c);
+}
+function mergeBars(bars){
+  const map = new Map(M1.map(b => [b.t, b]));
+  let added = 0;
+  for(const b of bars){ if(!map.has(b.t)){ map.set(b.t, b); added++; } else map.set(b.t, b); }
+  const before = M1.length;
+  M1 = [...map.values()].sort((a, b) => a.t - b.t).slice(-1600);
+  return M1.length !== before || added > 0;
+}
+
+/* Yahoo path: 20s REST polling (no websocket on this feed).
+   3 consecutive failures (or stale data) -> switch to PAXG automatically. */
+async function yahooPoll(){
+  try {
+    const bars = await yahooKlines('1m', '1d');
+    const lastT = M1.length ? M1[M1.length - 1].t : 0;
+    const newest = bars[bars.length - 1];
+    mergeBars(bars);
+    if(newest.t > lastT){ yahooFails = 0; recompute(); }
+    else {
+      if((Date.now() - lastT) / 60000 > 4) throw new Error('stale yahoo feed');
+      yahooFails = 0;
+      const [nowMs, m1c, h1c, h4c] = closedView(); render(nowMs, m1c, h1c, h4c);
+    }
+    setFresh('live');
+  } catch(e){
+    yahooFails++;
+    console.warn('yahoo poll fail #' + yahooFails, e);
+    if(yahooFails >= 3){ switchToPaxg(); return; }
+    setFresh('reconnecting');
+  }
+}
+
+/* Full feed switch Yahoo -> PAXG (mid-session recovery, mirrors boot fallback) */
+async function switchToPaxg(){
+  if(FEED === 'paxg') return;
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+  try {
+    const [m1, h1, h4] = await Promise.all([
+      paxgKlines('1m', 1500), paxgKlines('1h', 500), paxgKlines('4h', 500)]);
+    if(!m1.length) throw new Error('empty paxg');
+    M1 = m1; H1 = h1; H4 = h4;
+    try { M15 = await paxgKlines('15m', 500); } catch(e){}
+    FEED = 'paxg'; yahooFails = 0; wsFails = 0;
+    applyFeedLabel();
+    recompute();
+    setFresh('live');
+    connectWS();
+    scheduleYahooRecovery();
+  } catch(e){
+    console.warn('paxg switch failed, retrying yahoo', e);
+    yahooFails = 0;
+    setFresh('reconnecting');
+    pollTimer = setInterval(yahooPoll, 20000);
+  }
+}
+
+/* While on PAXG, silently retry Yahoo every 5 min and switch back when healthy */
+function scheduleYahooRecovery(){
+  if(yahooRetryTimer) return;
+  yahooRetryTimer = setInterval(async () => {
+    if(FEED !== 'paxg'){ clearInterval(yahooRetryTimer); yahooRetryTimer = null; return; }
+    await attemptYahooNow();   /* stays on PAXG on failure, tries again in 5 min */
+  }, 5 * 60 * 1000);
+}
+
+/* PAXG fallback path: websocket ticks, REST poll if WS is blocked */
+function connectWS(){
+  setFresh(wsFails === 0 ? 'connecting' : 'reconnecting');
+  try { ws = new WebSocket(PAXG_WS); } catch(e){ schedulePoll(); return; }
+  ws.onopen = () => { wsFails = 0; lastWSMsg = Date.now(); setFresh('live'); };
+  ws.onmessage = e => {
+    lastWSMsg = Date.now();
+    try {
+      const k = JSON.parse(e.data).k;
+      if(k) onTick({ t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c });
+    } catch(e2){}
+  };
+  const down = () => {
+    try { ws.close(); } catch(e2){}
+    wsFails++;
+    if(wsFails >= 3){ schedulePoll(); return; }
+    setFresh('reconnecting');
+    setTimeout(connectWS, Math.min(30000, 2000 * wsFails));
+  };
+  ws.onclose = down; ws.onerror = down;
+}
+async function paxgPollOnce(){
+  try {
+    const bars = await paxgKlines('1m', 3);
+    const last = M1[M1.length - 1];
+    const newest = bars[bars.length - 1];
+    if(newest.t > last.t){ mergeBars(bars); recompute(); }
+    else onTick(newest);
+    setFresh('live');
+  } catch(e){ setFresh('reconnecting'); }
+}
+function schedulePoll(){
+  if(pollTimer) return;
+  setFresh('reconnecting');
+  pollTimer = setInterval(paxgPollOnce, 15000);
+  paxgPollOnce();
+}
+
+async function refreshHigherTFs(){
+  try {
+    if(FEED === 'yahoo'){
+      const h1 = await yahooKlines('1h', '1mo');
+      H1 = h1; H4 = resample4h(h1);
+      try { M15 = await yahooKlines('15m', '1mo'); } catch(e){}
+    } else {
+      const [h1, h4] = await Promise.all([paxgKlines('1h', 500), paxgKlines('4h', 500)]);
+      H1 = h1; H4 = h4;
+      try { M15 = await paxgKlines('15m', 500); } catch(e){}
+    }
+    recompute();
+  } catch(e){}
+}
+
+/* ---------------- chart gestures: pinch / wheel zoom, double-tap reset ---------------- */
+function defaultViewCount(){
+  // keep candles ~5px wide so the chart stays readable on any screen
+  const pw = ($('chartWrap') ? $('chartWrap').clientWidth : 360) - 60;
+  return Math.max(40, Math.min(600, Math.round(pw / 5)));
+}
+let viewCount = 240;                       // visible candles, anchored to the live edge
+let viewOffset = 0;                      // candles panned back from the live edge (drag to scroll)
+let userZoomed = false;                    // don't override a manual zoom on resize
+const VIEW_MIN = 40, VIEW_MAX = 600;
+function applyZoom(factor){
+  userZoomed = true;
+  viewCount = Math.min(VIEW_MAX, Math.max(VIEW_MIN, Math.round(viewCount / factor)));
+  drawChart(Date.now());
+}
+(function initGestures(){
+  const cv = $('chart');
+  const pts = new Map();
+  let pinchD = 0, lastTap = 0, dragX = null, dragOff = 0;
+  const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const candleW = () => Math.max(2, (cv.clientWidth - 60) / viewCount);
+  const maxOff = () => Math.max(0, M1.length - viewCount);
+  cv.addEventListener('pointerdown', e => {
+    const now = Date.now();
+    if(pts.size === 0 && now - lastTap < 300){ viewCount = defaultViewCount(); viewOffset = 0; userZoomed = false; drawChart(now); }  // double-tap resets
+    lastTap = now;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { cv.setPointerCapture(e.pointerId); } catch(_){}
+    if(pts.size === 2){ pinchD = dist(); dragX = null; }
+    else if(pts.size === 1){ dragX = e.clientX; dragOff = viewOffset; }
+  });
+  cv.addEventListener('pointermove', e => {
+    if(!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if(pts.size === 2){
+      const d = dist();
+      if(pinchD > 0 && d > 0) applyZoom(d / pinchD);
+      pinchD = d;
+    } else if(pts.size === 1 && dragX !== null){
+      viewOffset = Math.min(maxOff(), Math.max(0, Math.round(dragOff + (e.clientX - dragX) / candleW())));
+      drawChart(Date.now());
+    }
+  });
+  const up = e => { pts.delete(e.pointerId); if(pts.size < 2) pinchD = 0; if(pts.size === 0) dragX = null; };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    applyZoom(e.deltaY < 0 ? 1.18 : 1 / 1.18);
+  }, { passive: false });
+})();
+
+async function boot(){
+  /* Primary: Yahoo XAUUSD spot (closest free match to Exness/OANDA).
+     Fallback: Binance PAXG (verified working). */
+  try {
+    const [m1, h1, m15] = await Promise.all([
+      yahooKlines('1m', '1d'), yahooKlines('1h', '1mo'), yahooKlines('15m', '1mo')]);
+    if(m1.length < 30 || h1.length < 30) throw new Error('thin Yahoo data');
+    M1 = m1; H1 = h1; H4 = resample4h(h1); M15 = m15;
+    FEED = 'yahoo';
+  } catch(e1){
+    try {
+      const [m1, h1, h4, m15] = await Promise.all([
+        paxgKlines('1m', 1500), paxgKlines('1h', 500), paxgKlines('4h', 500),
+        paxgKlines('15m', 500)]);
+      M1 = m1; H1 = h1; H4 = h4; M15 = m15;
+      FEED = 'paxg';
+    } catch(e2){
+      err('Could not reach any price feed. Check your connection and reload.');
+      $('vsub').textContent = 'feed unreachable';
+      return;
+    }
+  }
+  applyFeedLabel();
+  viewCount = defaultViewCount();   // readable candle width for this screen
+  recompute();
+  if(FEED === 'yahoo'){
+    setFresh('live');
+    pollTimer = setInterval(yahooPoll, 20000);
+  } else {
+    connectWS();
+  }
+  setInterval(refreshHigherTFs, 5 * 60 * 1000);
+  /* WS watchdog: silently-dead sockets (common on mobile) get force-reconnected */
+  setInterval(() => {
+    if(FEED !== 'paxg' || pollTimer) return;
+    if(Date.now() - lastWSMsg > 60000){ try { ws.close(); } catch(e){} connectWS(); }
+  }, 20000);
+  document.addEventListener('visibilitychange', async () => {
+    if(document.hidden) return;
+    try {
+      if(FEED === 'yahoo'){
+        yahooFails = 0;
+        const bars = await yahooKlines('1m', '1d'); mergeBars(bars);
+        try { M15 = await yahooKlines('15m', '1mo'); } catch(e2){}
+      } else {
+        const bars = await paxgKlines('1m', 10); mergeBars(bars);
+        try { M15 = await paxgKlines('15m', 500); } catch(e2){}
+        if(!pollTimer && Date.now() - lastWSMsg > 45000){ try { ws.close(); } catch(e){} connectWS(); }
+      }
+      recompute();
+      setFresh('live');
+    } catch(e){ setFresh('reconnecting'); }
+  });
+  window.addEventListener('resize', () => {
+    if(!userZoomed) viewCount = defaultViewCount();
+    const [nowMs, m1c, h1c, h4c] = closedView();
+    render(nowMs, m1c, h1c, h4c);
+  });
+  $('symLabel').addEventListener('click', toggleFeed);
+}
+boot();
+</script>
+</body>
+</html>
